@@ -1,0 +1,166 @@
+/*============================
+    map
+    0. resets
+    1. board
+      1.1 colours of squares
+      1.2 pieces
+  ============================*/
+
+/*==========
+    resets
+  ==========*/
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+* {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+a,
+a:visited,
+a:hover,
+a:active {
+  text-decoration: none;
+}
+ul,
+ol,
+li {
+  list-style: none;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+img {
+  user-select: none;
+}
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+button {
+  cursor: pointer;
+}
+body {
+  font-family: 'Roboto', sans-serif;
+  color: #333;
+}
+:root {
+  /* takes 11% of width if screen width < height and same with the height. max size = 80px*/
+  --square-size: min(80px, 11dvw, 11dvh);
+  --light-square: rgb(249, 235, 213);
+  --dark-square: rgb(52, 35, 19);
+  --active-square: rgb(183, 86, 240);
+  --available-square: rgb(5, 139, 222);
+  --attack-square: rgb(176, 27, 72);
+  --check-square: rgb(186, 4, 58);
+}
+.main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 100%;
+  min-height: 100dvh;
+}
+
+/*=========
+    board
+  =========*/
+.board {
+  display: flex;
+  /* rotate: 180deg; */
+}
+.board__column {
+  display: flex;
+  flex-direction: column;
+}
+.board__column::after {
+  content: attr(id);
+
+  display: flex;
+  justify-content: center;
+  align-items: start;
+
+  padding-top: 0.5rem;
+
+  line-height: 1;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+.board__square {
+  width: var(--square-size);
+  aspect-ratio: 1;
+}
+.board__numbers {
+  display: flex;
+  flex-direction: column-reverse;
+  align-self: start;
+}
+.board__row-number {
+  display: flex;
+  align-items: center;
+  justify-content: right;
+
+  height: var(--square-size);
+  padding-right: 1rem;
+
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+/*----------------------
+    colours of squares
+  ----------------------*/
+.dark-square {
+  background-color: var(--dark-square);
+}
+.light-square {
+  background-color: var(--light-square);
+}
+.active-square {
+  background-color: var(--active-square);
+}
+.available-square {
+  background-color: var(--available-square);
+}
+.attack-square {
+  background-color: var(--attack-square);
+}
+.check-square {
+  background-color: var(--check-square);
+}
+.active-square,
+.available-square,
+.can-take-square,
+.check-square {
+  width: 100%;
+  height: 100%;
+
+  opacity: 0.4;
+  cursor: pointer;
+}
+/*----------
+    pieces
+  ----------*/
+.piece {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.piece img {
+  max-width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
