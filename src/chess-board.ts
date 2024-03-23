@@ -8,18 +8,22 @@ export enum SquareMarks {
   activeSquare = 'active-square ',
   checkSquare = 'check-square',
 }
-
-export type BoardSquare = Array<ChessPiece | SquareMarks>;
-export type BoardColumn = Array<BoardSquare>;
+export interface IBoardSquare {
+  piece?: ChessPiece;
+  SquareMark?: SquareMarks;
+}
+// export type BoardSquare = Array<ChessPiece | SquareMarks>;
+export type BoardColumn = Array<IBoardSquare>;
 
 export class Board {
   board: Array<BoardColumn> = [];
   private createBoard(): void {
     for (let i = 1; i <= 8; i++) {
       const boardColumn: BoardColumn = [];
+      // const boardColumn: BoardColumn = new Array(8).fill('').map(() => ({}));
 
       for (let j = 1; j <= 8; j++) {
-        const boardSquare: BoardSquare = [];
+        const boardSquare: IBoardSquare = {};
         boardColumn.push(boardSquare);
       }
 
@@ -45,13 +49,13 @@ export class Board {
 
         startingPositions.forEach((square: ISquareCoordinates) => {
           const color: TeamColour = TeamColour[colorKey as keyof typeof TeamColour];
+          // CHANGE THIS
           const piece = new Rook(pieceType.name, color, pieceId, square);
           pieceId++;
-          piece.move(this.board, piece.position);
 
           const column = getColumnIndex(square.x);
           const row = getRowIndex(square.y);
-          this.board[column][row].push(piece);
+          this.board[column][row].piece = piece;
         });
       }
     });

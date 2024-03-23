@@ -1,4 +1,4 @@
-import { ISquareCoordinates, columnIndexes, getColumnIndex, getColumnLetter } from './boardIndexes';
+import { ISquareCoordinates, columnLetterType, getColumnIndex, getColumnLetter, getRowIndex } from './boardIndexes';
 import { BoardColumn } from './chess-board';
 
 export enum TeamColour {
@@ -10,25 +10,27 @@ export class ChessPiece {
   readonly name: string;
   readonly colour: TeamColour;
   readonly id: number;
-  position: ISquareCoordinates;
+  coordinates: ISquareCoordinates;
   isFirstMove: boolean;
-  move(board: Array<BoardColumn>, activePieceLocation: ISquareCoordinates) {}
+  move(board: Array<BoardColumn>) {
+    if (!board) throw new Error('board is not exist');
+  }
 
   constructor(name: string, colour: TeamColour, id: number, position: ISquareCoordinates) {
     this.name = name;
     this.colour = colour;
     this.id = id;
-    this.position = position;
+    this.coordinates = position;
     this.isFirstMove = true;
   }
 }
 
 export class Rook extends ChessPiece {
-  override move(board: Array<BoardColumn>, pieceLocation: ISquareCoordinates) {
+  override move(board: Array<BoardColumn>) {
     const availableSquares: Array<ISquareCoordinates> = [];
     const canAttackSquares: Array<ISquareCoordinates> = [];
 
-    horizontalMove(availableSquares, canAttackSquares, board, pieceLocation);
+    horizontalMove(availableSquares, canAttackSquares, board, this.coordinates, this.colour);
   }
 }
 
@@ -50,16 +52,31 @@ function horizontalMove(
   availableSquares: Array<ISquareCoordinates>,
   canAttackSquares: Array<ISquareCoordinates>,
   board: Array<BoardColumn>,
-  pieceLocation: ISquareCoordinates
+  pieceLocation: ISquareCoordinates,
+  pieceColour: TeamColour
 ) {
   const startX: number = getColumnIndex(pieceLocation.x);
-  const startY: number = pieceLocation.y;
+  const startY: number = getRowIndex(pieceLocation.y);
 
   Object.keys(horizontalDirections).forEach((directionValue) => {
     if (isNaN(+directionValue)) return;
     const direction: number = +directionValue;
 
     for (let x: number = startX; x >= 1 || x <= 8; x += direction) {
+      const columnIndex: columnLetterType = getColumnLetter(x);
+      const rowIndex: number = getRowIndex(startY);
+      const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
+
+      // can put in separate function this code (it will duplicate a lot)
+      const pieceOnSquare: ChessPiece | undefined = board[x][startY].piece;
+      if (!pieceOnSquare) {
+        availableSquares.push(coordinates);
+      } else {
+        if (pieceOnSquare.colour === pieceColour) {
+          break;
+        }
+        canAttackSquares.push(coordinates);
+      }
       return;
     }
   });

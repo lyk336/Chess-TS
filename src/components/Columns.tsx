@@ -1,30 +1,35 @@
 import { FC } from 'react';
 import { columnIndexes } from '../boardIndexes';
-import { BoardColumn, BoardSquare } from '../chess-board';
-import { ChessPiece } from '../ChessPiece';
-import Piece from './Piece';
+import { BoardColumn, IBoardSquare } from '../chess-board';
+import Square from './Square';
+import { ISquareHandlers } from '../App';
 
 interface IColumnProps {
   column: BoardColumn;
   index: number;
   defineSquareColour(): string;
+  handlers: ISquareHandlers;
 }
 
-const Column: FC<IColumnProps> = ({ column, index, defineSquareColour }) => {
+const Column: FC<IColumnProps> = ({ column, index, defineSquareColour, handlers }) => {
   const columnIndex: string = columnIndexes[index];
 
   return (
     <div className='board__column' id={columnIndex} key={columnIndex}>
-      {column.map((square: BoardSquare) => {
-        const squareKey: string = columnIndex + Math.random().toFixed(10);
-        return (
-          <div className={`board__square ${defineSquareColour()}-square`} id={squareKey} key={squareKey}>
-            {square.map((piece: ChessPiece) => (
-              <Piece piece={piece} key={piece.id}></Piece>
-            ))}
-          </div>
-        );
-      })}
+      {column
+        .map((square: IBoardSquare, i: number) => {
+          const squareKey: string = columnIndex + (i + 1);
+          return (
+            <Square
+              square={square}
+              defineSquareColour={defineSquareColour()}
+              handlers={handlers}
+              id={squareKey}
+              key={squareKey}
+            />
+          );
+        })
+        .reverse()}
     </div>
   );
 };
