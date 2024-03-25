@@ -2,16 +2,13 @@ import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import './styles/App.css';
 import lodash from 'lodash';
 import { Board, BoardColumn, SquareMarks } from './chess-board';
-import { ISquareCoordinates, getColumnIndex, getColumnLetter, getCoordinates, getRowIndex } from './boardIndexes';
-// import { columnIndexes, getColumnIndex, getColumnLetter, getRowIndex } from './boardIndexes';
-// import { ChessPiece } from './ChessPiece';
+import { ISquareCoordinates, getColumnLetter, getCoordinates } from './boardIndexes';
 import Column from './components/Columns';
 import { ChessPiece } from './ChessPiece';
 
 export interface ISquareHandlers {
   handlePieceInteraction(piece: ChessPiece): void;
-  handleAvailableSquare(): void;
-  handleAttackSquare(): void;
+  handleMove(squareCoordinates: ISquareCoordinates): void;
 }
 
 const compareCoordinates = (coord1: ISquareCoordinates | null, coord2: ISquareCoordinates | null): boolean => {
@@ -23,50 +20,99 @@ const compareCoordinates = (coord1: ISquareCoordinates | null, coord2: ISquareCo
   return coordJSON1 === coordJSON2;
 };
 
+enum MoveType {
+  emptySquares = 0,
+  attackSquares,
+}
+
 const App: FC = () => {
   const [board, setBoard] = useState<Array<BoardColumn>>([]);
   const [whoseTurn, setWhoseTurn] = useState<string>('white');
   const [activePiece, setActivePiece] = useState<ISquareCoordinates | null>(null);
   const [kingCheckLocation, setKingCheckLocation] = useState<ISquareCoordinates | null>(null);
+  const [emptySquares, setEmptySquares] = useState<Array<ISquareCoordinates>>([]);
+  const [attackSquares, setAttackSquares] = useState<Array<ISquareCoordinates>>([]);
 
   useEffect(() => {
     const newBoard = new Board();
     setBoard(newBoard.board);
   }, []);
 
-  // add/remove mark to/from active square or check
+  // add/remove marks
   const previousActivePiece = useRef<ISquareCoordinates | null>(null);
+  const previousEmptySquares = useRef<Array<ISquareCoordinates>>([]);
+  const previousAttackSquares = useRef<Array<ISquareCoordinates>>([]);
+
   const createBoardCopy = useCallback((): Array<BoardColumn> => {
     const boardCopy = lodash.cloneDeep(board);
     return boardCopy;
   }, [board]);
 
-  useEffect(() => {
-    if (!activePiece) {
-      return;
-    }
+  const updateActiveMarks = useCallback(
+    (boardCopy: Array<BoardColumn>): void => {
+      if (!activePiece) return;
 
-    const boardCopy: Array<BoardColumn> = createBoardCopy();
-    const [cuurentX, currentY] = getCoordinates(activePiece);
+      const [cuurentX, currentY] = getCoordinates(activePiece);
 
-    if (!previousActivePiece.current) {
-      console.log(2);
-      boardCopy[cuurentX][currentY].SquareMark = SquareMarks.activeSquare;
+      if (!previousActivePiece.current) {
+        boardCopy[cuurentX][currentY].squareMark = SquareMarks.activeSquare;
+        previousActivePiece.current = activePiece;
+        return;
+      }
+
+      // remove previous mark
+      const [previousX, previousY] = getCoordinates(previousActivePiece.current);
       previousActivePiece.current = activePiece;
-      setBoard(boardCopy);
-      return;
-    }
-    console.log(3);
+      delete boardCopy[previousX][previousY].squareMark;
+      //  add new mark
+      boardCopy[cuurentX][currentY].squareMark = SquareMarks.activeSquare;
+    },
+    [activePiece]
+  );
+  const updateMovesMarks = useCallback(
+    (boardCopy: Array<BoardColumn>, moveType: MoveType): void => {
+      const moveLists = [emptySquares, attackSquares];
+      const previousListsRefs = [previousEmptySquares, previousAttackSquares];
 
-    // remove previous mark
-    const [previousX, previousY] = getCoordinates(previousActivePiece.current);
-    previousActivePiece.current = activePiece;
-    delete boardCopy[previousX][previousY].SquareMark;
-    //  add new mark
-    boardCopy[cuurentX][currentY].SquareMark = SquareMarks.activeSquare;
+      const moveList = moveLists[moveType];
+      const previousListRef = previousListsRefs[moveType];
+      if (!moveList.length && !previousListRef.current.length) return;
+
+      // clear all previous marks
+      previousListRef.current.forEach((square: ISquareCoordinates) => {
+        const [x, y] = getCoordinates(square);
+        delete boardCopy[x][y].squareMark;
+      });
+      previousListRef.current = [];
+
+      // add new marks
+      moveList.forEach((square: ISquareCoordinates) => {
+        const [x, y] = getCoordinates(square);
+        switch (moveType) {
+          case MoveType.emptySquares:
+            boardCopy[x][y].squareMark = SquareMarks.emptySquare;
+            break;
+          case MoveType.attackSquares:
+            boardCopy[x][y].squareMark = SquareMarks.attackSquares;
+            break;
+        }
+      });
+      previousListRef.current = moveList;
+    },
+    [emptySquares, attackSquares]
+  );
+  useEffect(() => {
+    if (!board.length) return;
+    const boardCopy: Array<BoardColumn> = createBoardCopy();
+
+    updateActiveMarks(boardCopy);
+    updateMovesMarks(boardCopy, MoveType.emptySquares);
+    updateMovesMarks(boardCopy, MoveType.attackSquares);
+
     setBoard(boardCopy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePiece]);
+  }, [activePiece, emptySquares, attackSquares]);
+
   const changeTurn = (): void => {
     const nextTurn: string = whoseTurn === 'white' ? 'black' : 'white';
     setWhoseTurn(nextTurn);
@@ -86,49 +132,59 @@ const App: FC = () => {
     return squareColour;
   };
 
-  // pass check update function to pieces
-  const kingUnderCheck = (coordinates: ISquareCoordinates): void => {
-    setKingCheckLocation(coordinates);
-  };
-
   // onclick handlers
   const handlePieceInteraction = (piece: ChessPiece): void => {
     if (whoseTurn !== piece.colour) {
       return;
     }
+    // deactivate piece
     if (compareCoordinates(activePiece, piece.coordinates)) {
       const boardCopy: Array<BoardColumn> = createBoardCopy();
       const [currentX, currentY] = getCoordinates(activePiece!);
+      delete boardCopy[currentX][currentY].squareMark;
 
-      delete boardCopy[currentX][currentY].SquareMark;
       setBoard(boardCopy);
+      setEmptySquares([]);
+      setAttackSquares([]);
       setActivePiece(null);
       previousActivePiece.current = null;
       return;
     }
     setActivePiece(piece.coordinates);
 
-    const boardCopy: Array<BoardColumn> = lodash.cloneDeep(board);
-    const interactingPiece: ChessPiece =
-      board[getColumnIndex(piece.coordinates.x)][getRowIndex(piece.coordinates.y)].piece!;
+    const boardCopy: Array<BoardColumn> = createBoardCopy();
+    const [x, y] = getCoordinates(piece.coordinates);
+    console.log(piece.coordinates);
+    const interactingPiece: ChessPiece = board[x][y].piece!;
 
-    interactingPiece.move(boardCopy);
+    const { emptySquares, attackSquares } = interactingPiece.move(boardCopy);
+    setEmptySquares(emptySquares);
+    setAttackSquares(attackSquares);
   };
-  const handleAvailableSquare = (): void => {
-    if (kingCheckLocation) setKingCheckLocation(null);
-    // move()
-    changeTurn();
-  };
-  const handleAttackSquare = (): void => {
-    if (kingCheckLocation) setKingCheckLocation(null);
-    // move()
+  const handleMove = (squareCoordinates: ISquareCoordinates): void => {
+    if (!activePiece) return;
+    const boardCopy = createBoardCopy();
+    const [squareX, squareY] = getCoordinates(squareCoordinates);
+    const [pieceX, pieceY] = getCoordinates(activePiece);
+    const piece: ChessPiece = boardCopy[pieceX][pieceY].piece!;
+    piece.coordinates = squareCoordinates;
+    piece.isFirstMove = false;
+
+    boardCopy[squareX][squareY].piece = piece;
+    delete boardCopy[pieceX][pieceY].piece;
+    delete boardCopy[pieceX][pieceY].squareMark;
+
+    setBoard(boardCopy);
+    setEmptySquares([]);
+    setAttackSquares([]);
+    setActivePiece(null);
+    previousActivePiece.current = null;
     changeTurn();
   };
 
   const squareHandlers: ISquareHandlers = {
     handlePieceInteraction,
-    handleAvailableSquare,
-    handleAttackSquare,
+    handleMove,
   };
 
   return (

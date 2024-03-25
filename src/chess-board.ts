@@ -1,16 +1,16 @@
-import { ChessPiece, Rook, TeamColour } from './ChessPiece';
+import { Bishop, ChessPiece, King, Knight, Pawn, PieceTypes, Queen, Rook, TeamColour } from './ChessPiece';
 import { pieces, IPieceType } from './starting-positions';
-import { getColumnIndex, getRowIndex, ISquareCoordinates } from './boardIndexes';
+import { getCoordinates, ISquareCoordinates } from './boardIndexes';
 
 export enum SquareMarks {
-  availableSquare = 'available-square',
+  emptySquare = 'empty-square',
   attackSquares = 'attack-square',
   activeSquare = 'active-square ',
   checkSquare = 'check-square',
 }
 export interface IBoardSquare {
   piece?: ChessPiece;
-  SquareMark?: SquareMarks;
+  squareMark?: SquareMarks;
 }
 // export type BoardSquare = Array<ChessPiece | SquareMarks>;
 export type BoardColumn = Array<IBoardSquare>;
@@ -49,39 +49,36 @@ export class Board {
 
         startingPositions.forEach((square: ISquareCoordinates) => {
           const color: TeamColour = TeamColour[colorKey as keyof typeof TeamColour];
-          // CHANGE THIS
-          const piece = new Rook(pieceType.name, color, pieceId, square);
+
+          let piece: ChessPiece;
+          switch (pieceType.name) {
+            case PieceTypes.king:
+              piece = new King(pieceType.name, color, pieceId, square);
+              break;
+            case PieceTypes.queen:
+              piece = new Queen(pieceType.name, color, pieceId, square);
+              break;
+            case PieceTypes.rook:
+              piece = new Rook(pieceType.name, color, pieceId, square);
+              break;
+            case PieceTypes.bishop:
+              piece = new Bishop(pieceType.name, color, pieceId, square);
+              break;
+            case PieceTypes.knight:
+              piece = new Knight(pieceType.name, color, pieceId, square);
+              break;
+            case PieceTypes.pawn:
+              piece = new Pawn(pieceType.name, color, pieceId, square);
+              break;
+            default:
+              throw new Error(`${pieceType.name} is not a valid name`);
+          }
           pieceId++;
 
-          const column = getColumnIndex(square.x);
-          const row = getRowIndex(square.y);
+          const [column, row] = getCoordinates(square);
           this.board[column][row].piece = piece;
         });
       }
     });
   }
 }
-/*
- startingPositions.forEach((square: ISquareCoordinates) => {
-          const color: TeamColour = TeamColour[colorKey as keyof typeof TeamColour];
-          const piece = new Rook(pieceType.name, color, pieceId, square);
-          pieceId++;
-          piece.move(this.board, piece.position);
-
-          const column = getColumnIndex(square.x);
-          const row = getRowIndex(square.y);
-          this.board[column][row].push(piece);
-*/
-
-/*
-original
- startingPositions.forEach((square: ISquareCoordinates) => {
-          const color: TeamColour = TeamColour[colorKey as keyof typeof TeamColour];
-          const piece = new ChessPiece(pieceType.name, color, pieceId, square);
-          pieceId++;
-
-          const column = getColumnIndex(square.x);
-          const row = getRowIndex(square.y);
-          this.board[column][row].push(piece);
-        });
-*/

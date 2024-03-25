@@ -62,7 +62,7 @@ body {
   --light-square: rgb(249, 235, 213);
   --dark-square: rgb(52, 35, 19);
   --active-square: rgba(183, 86, 240, 0.4);
-  --available-square: rgba(5, 139, 222, 0.4);
+  --empty-square: rgba(5, 139, 222, 0.4);
   --attack-square: rgba(176, 27, 72, 0.4);
   --check-square: rgba(186, 4, 58, 0.4);
 }
@@ -100,6 +100,7 @@ body {
 }
 .board__square {
   width: var(--square-size);
+  max-height: var(--square-size);
   aspect-ratio: 1;
 }
 .board__numbers {
@@ -130,8 +131,8 @@ body {
 .active-square {
   background-color: var(--active-square);
 }
-.available-square {
-  background-color: var(--available-square);
+.empty-square {
+  background-color: var(--empty-square);
 }
 .attack-square {
   background-color: var(--attack-square);
@@ -140,8 +141,8 @@ body {
   background-color: var(--check-square);
 }
 .active-square,
-.available-square,
-.can-take-square,
+.empty-square,
+.attack-square,
 .check-square {
   width: 100%;
   height: 100%;
@@ -161,4 +162,5 @@ body {
 }
 .piece img {
   object-fit: contain;
+  -webkit-user-drag: none;
 }

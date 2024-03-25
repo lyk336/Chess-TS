@@ -1,4 +1,5 @@
 import { ISquareCoordinates } from './boardIndexes';
+import { PieceTypes } from './ChessPiece';
 
 export interface IPieceType {
   name: string;
@@ -10,21 +11,21 @@ export interface IPieceType {
 
 export const pieces: Array<IPieceType> = [
   {
-    name: 'king',
+    name: PieceTypes.king,
     startingSquare: {
       white: [{ x: 'e', y: 1 }],
       black: [{ x: 'e', y: 8 }],
     },
   },
   {
-    name: 'queen',
+    name: PieceTypes.queen,
     startingSquare: {
       white: [{ x: 'd', y: 1 }],
       black: [{ x: 'd', y: 8 }],
     },
   },
   {
-    name: 'bishop',
+    name: PieceTypes.bishop,
     startingSquare: {
       white: [
         { x: 'c', y: 1 },
@@ -37,7 +38,7 @@ export const pieces: Array<IPieceType> = [
     },
   },
   {
-    name: 'knight',
+    name: PieceTypes.knight,
     startingSquare: {
       white: [
         { x: 'b', y: 1 },
@@ -50,7 +51,7 @@ export const pieces: Array<IPieceType> = [
     },
   },
   {
-    name: 'rook',
+    name: PieceTypes.rook,
     startingSquare: {
       white: [
         { x: 'a', y: 1 },
@@ -63,7 +64,7 @@ export const pieces: Array<IPieceType> = [
     },
   },
   {
-    name: 'pawn',
+    name: PieceTypes.pawn,
     startingSquare: {
       white: [
         { x: 'a', y: 2 },

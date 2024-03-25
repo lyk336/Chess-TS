@@ -17,7 +17,7 @@ export const getColumnLetter = (i: number): columnLetterType => {
 };
 export const getRowIndex = (i: number): number => i - 1;
 
-export const getCoordinates = (coordinates: ISquareCoordinates): [x: number, y: number] => {
+export const getCoordinates = (coordinates: ISquareCoordinates): [number, number] => {
   const x: number = getColumnIndex(coordinates.x);
   const y: number = getRowIndex(coordinates.y);
 
