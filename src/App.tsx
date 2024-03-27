@@ -1,16 +1,20 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import './styles/App.css';
 import lodash from 'lodash';
-import { Board, BoardColumn, SquareMarks } from './chess-board';
+import { Board, BoardColumn, IBoardSquare, SquareMarks } from './chess-board';
 import { ISquareCoordinates, getColumnLetter, getCoordinates } from './boardIndexes';
 import Column from './components/Columns';
-import { ChessPiece } from './ChessPiece';
+import { ChessPiece, KingsId } from './ChessPiece';
 
 export interface ISquareHandlers {
   handlePieceInteraction(piece: ChessPiece): void;
   handleMove(squareCoordinates: ISquareCoordinates): void;
 }
-
+enum MoveType {
+  emptySquares = 0,
+  attackSquares,
+}
+// type PiecesMap = Map<string, ChessPiece>;
 const compareCoordinates = (coord1: ISquareCoordinates | null, coord2: ISquareCoordinates | null): boolean => {
   if (!coord1 || !coord2) return false;
 
@@ -20,22 +24,31 @@ const compareCoordinates = (coord1: ISquareCoordinates | null, coord2: ISquareCo
   return coordJSON1 === coordJSON2;
 };
 
-enum MoveType {
-  emptySquares = 0,
-  attackSquares,
-}
-
 const App: FC = () => {
   const [board, setBoard] = useState<Array<BoardColumn>>([]);
   const [whoseTurn, setWhoseTurn] = useState<string>('white');
   const [activePiece, setActivePiece] = useState<ISquareCoordinates | null>(null);
-  const [kingCheckLocation, setKingCheckLocation] = useState<ISquareCoordinates | null>(null);
+  // const [kingCheckLocation, setKingCheckLocation] = useState<ISquareCoordinates | null>(null);
   const [emptySquares, setEmptySquares] = useState<Array<ISquareCoordinates>>([]);
   const [attackSquares, setAttackSquares] = useState<Array<ISquareCoordinates>>([]);
+  const piecesOnBoard = useRef<Map<string, ChessPiece>>(new Map<string, ChessPiece>());
 
   useEffect(() => {
+    // creating board
     const newBoard = new Board();
     setBoard(newBoard.board);
+
+    // adding all pieces to pieces map
+    for (let x: number = 0; x <= 7; x++) {
+      for (let whiteY: number = 0; whiteY <= 1; whiteY++) {
+        const blackY: number = 7 - whiteY;
+        const whitePiece: ChessPiece = newBoard.board[x][whiteY].piece!;
+        const blackPiece: ChessPiece = newBoard.board[x][blackY].piece!;
+
+        piecesOnBoard.current.set(whitePiece.id, whitePiece);
+        piecesOnBoard.current.set(blackPiece.id, blackPiece);
+      }
+    }
   }, []);
 
   // add/remove marks
@@ -108,15 +121,14 @@ const App: FC = () => {
     updateActiveMarks(boardCopy);
     updateMovesMarks(boardCopy, MoveType.emptySquares);
     updateMovesMarks(boardCopy, MoveType.attackSquares);
-
     setBoard(boardCopy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePiece, emptySquares, attackSquares]);
 
-  const changeTurn = (): void => {
+  const changeTurn = useCallback((): void => {
     const nextTurn: string = whoseTurn === 'white' ? 'black' : 'white';
     setWhoseTurn(nextTurn);
-  };
+  }, [whoseTurn]);
 
   let squareNumber: number = 0;
   let isLightSquare: boolean = false;
@@ -133,54 +145,65 @@ const App: FC = () => {
   };
 
   // onclick handlers
-  const handlePieceInteraction = (piece: ChessPiece): void => {
-    if (whoseTurn !== piece.colour) {
-      return;
-    }
-    // deactivate piece
-    if (compareCoordinates(activePiece, piece.coordinates)) {
+  const handlePieceInteraction = useCallback(
+    (piece: ChessPiece): void => {
+      if (whoseTurn !== piece.colour) return;
+
+      // deactivate piece
+      if (compareCoordinates(activePiece, piece.coordinates)) {
+        const boardCopy: Array<BoardColumn> = createBoardCopy();
+        const [currentX, currentY] = getCoordinates(activePiece!);
+        delete boardCopy[currentX][currentY].squareMark;
+
+        setBoard(boardCopy);
+        setEmptySquares([]);
+        setAttackSquares([]);
+        setActivePiece(null);
+        previousActivePiece.current = null;
+        return;
+      }
+      setActivePiece(piece.coordinates);
+
       const boardCopy: Array<BoardColumn> = createBoardCopy();
-      const [currentX, currentY] = getCoordinates(activePiece!);
-      delete boardCopy[currentX][currentY].squareMark;
+      const [x, y] = getCoordinates(piece.coordinates);
+      const interactingPiece: ChessPiece = board[x][y].piece!;
+
+      const currentKing: ChessPiece = piecesOnBoard.current.get(KingsId[whoseTurn])!;
+      const { emptySquares, attackSquares } = interactingPiece.move(boardCopy, currentKing);
+      setEmptySquares(emptySquares);
+      setAttackSquares(attackSquares);
+    },
+    [activePiece, createBoardCopy, board, whoseTurn]
+  );
+  const handleMove = useCallback(
+    (squareCoordinates: ISquareCoordinates): void => {
+      if (!activePiece) return;
+      const boardCopy = createBoardCopy();
+      const [squareX, squareY] = getCoordinates(squareCoordinates);
+      const [pieceX, pieceY] = getCoordinates(activePiece);
+      const piece: ChessPiece = boardCopy[pieceX][pieceY].piece!;
+      piece.coordinates = squareCoordinates;
+      piece.isFirstMove = false;
+
+      piecesOnBoard.current.set(piece.id, piece);
+      const square: IBoardSquare = boardCopy[squareX][squareY];
+      if (square.piece && square.piece!.colour !== piece.colour) {
+        piecesOnBoard.current.delete(square.piece.id);
+      }
+
+      square.piece = piece;
+      delete boardCopy[pieceX][pieceY].piece;
+      delete boardCopy[pieceX][pieceY].squareMark;
 
       setBoard(boardCopy);
       setEmptySquares([]);
       setAttackSquares([]);
       setActivePiece(null);
       previousActivePiece.current = null;
-      return;
-    }
-    setActivePiece(piece.coordinates);
-
-    const boardCopy: Array<BoardColumn> = createBoardCopy();
-    const [x, y] = getCoordinates(piece.coordinates);
-    console.log(piece.coordinates);
-    const interactingPiece: ChessPiece = board[x][y].piece!;
-
-    const { emptySquares, attackSquares } = interactingPiece.move(boardCopy);
-    setEmptySquares(emptySquares);
-    setAttackSquares(attackSquares);
-  };
-  const handleMove = (squareCoordinates: ISquareCoordinates): void => {
-    if (!activePiece) return;
-    const boardCopy = createBoardCopy();
-    const [squareX, squareY] = getCoordinates(squareCoordinates);
-    const [pieceX, pieceY] = getCoordinates(activePiece);
-    const piece: ChessPiece = boardCopy[pieceX][pieceY].piece!;
-    piece.coordinates = squareCoordinates;
-    piece.isFirstMove = false;
-
-    boardCopy[squareX][squareY].piece = piece;
-    delete boardCopy[pieceX][pieceY].piece;
-    delete boardCopy[pieceX][pieceY].squareMark;
-
-    setBoard(boardCopy);
-    setEmptySquares([]);
-    setAttackSquares([]);
-    setActivePiece(null);
-    previousActivePiece.current = null;
-    changeTurn();
-  };
+      changeTurn();
+    },
+    [activePiece, changeTurn, createBoardCopy]
+  );
 
   const squareHandlers: ISquareHandlers = {
     handlePieceInteraction,

@@ -11,7 +11,7 @@ const Piece: FC<IPieceProps> = ({ piece, handlers }) => {
   return (
     <div
       className='piece'
-      id={piece.id.toString()}
+      id={piece.id}
       onClick={() => {
         handlers.handlePieceInteraction(piece);
       }}

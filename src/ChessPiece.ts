@@ -1,5 +1,6 @@
 import { ISquareCoordinates, columnLetterType, getColumnLetter, getCoordinates } from './boardIndexes';
-import { BoardColumn } from './chess-board';
+import { BoardColumn, IBoardSquare } from './chess-board';
+import lodash from 'lodash';
 
 export enum TeamColour {
   black = 'black',
@@ -13,183 +14,251 @@ export enum PieceTypes {
   knight = 'knight',
   pawn = 'pawn',
 }
+export enum KingsId {
+  white = 'white-king',
+  black = 'black-king',
+}
 
 export interface IMoveLists {
   emptySquares: Array<ISquareCoordinates>;
   attackSquares: Array<ISquareCoordinates>;
 }
+interface IMoveArguments {
+  emptySquares: Array<ISquareCoordinates>;
+  attackSquares: Array<ISquareCoordinates>;
+  board: Array<BoardColumn>;
+  piece: ChessPiece;
+}
 
 export class ChessPiece {
   readonly name: string;
   readonly colour: TeamColour;
-  readonly id: number;
+  readonly id: string;
   coordinates: ISquareCoordinates;
   isFirstMove: boolean;
-  move(board: Array<BoardColumn>): IMoveLists {
-    if (!board) throw new Error('board is not exist');
+  move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
+    if (!board || !allyKing) throw new Error('board is not exist');
 
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
     return { emptySquares: emptySquares, attackSquares: attackSquares };
   }
 
-  constructor(name: string, colour: TeamColour, id: number, position: ISquareCoordinates) {
+  constructor(name: string, colour: TeamColour, id: string, coordinates: ISquareCoordinates) {
     this.name = name;
     this.colour = colour;
     this.id = id;
-    this.coordinates = position;
+    this.coordinates = coordinates;
     this.isFirstMove = true;
   }
 }
 export class Pawn extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    let direction: verticalDirections;
-    switch (this.colour) {
-      case TeamColour.white:
-        direction = verticalDirections.top;
-        break;
-      case TeamColour.black:
-        direction = verticalDirections.down;
-        break;
-    }
-    const [startX, startY] = getCoordinates(this.coordinates);
-    let coordinates: ISquareCoordinates;
-    let y: number = startY + direction;
-    if (y < 0 || y > 7) return moveLists;
+    pawnMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
 
-    // check sides for enemy piece
-    cornerAttack(board, startX, y, attackSquares, this);
-
-    // check for default moves without taking enemy piece
-    if (board[startX][y].piece) return moveLists;
-    coordinates = { x: getColumnLetter(startX), y: y + 1 };
-    emptySquares.push(coordinates);
-
-    if (!this.isFirstMove) return moveLists;
-    y += direction;
-    if (y < 0 || y > 7) return moveLists;
-    if (board[startX][y].piece) return moveLists;
-    coordinates = { x: getColumnLetter(startX), y: y + 1 };
-    emptySquares.push(coordinates);
-
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 export class Rook extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    horizontalAndVerticalMove(emptySquares, attackSquares, board, this);
+    XYMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
+
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 export class Bishop extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    diagonalMove(emptySquares, attackSquares, board, this);
+    diagonalMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
+
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 export class Queen extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    horizontalAndVerticalMove(emptySquares, attackSquares, board, this);
-    diagonalMove(emptySquares, attackSquares, board, this);
+    XYMove(moveArguments);
+    diagonalMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
+
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 export class Knight extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    knightMove(emptySquares, attackSquares, board, this);
+    knightMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
+
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 export class King extends ChessPiece {
-  override move(board: Array<BoardColumn>): IMoveLists {
+  override move(board: Array<BoardColumn>, allyKing: ChessPiece): IMoveLists {
     const emptySquares: Array<ISquareCoordinates> = [];
     const attackSquares: Array<ISquareCoordinates> = [];
-    const moveLists: IMoveLists = { emptySquares: emptySquares, attackSquares: attackSquares };
+    const moveArguments: IMoveArguments = {
+      emptySquares,
+      attackSquares,
+      board,
+      piece: this,
+    };
 
-    kingMove(emptySquares, attackSquares, board, this);
+    kingMove(moveArguments);
+    validateMoves(moveArguments, allyKing);
+
+    const moveLists: IMoveLists = {
+      emptySquares: moveArguments.emptySquares,
+      attackSquares: moveArguments.attackSquares,
+    };
     return moveLists;
   }
 }
 
-enum horizontalDirections {
+enum HorizontalDirections {
   left = -1,
   right = 1,
 }
-enum verticalDirections {
+enum VerticalDirections {
   down = -1,
   top = 1,
 }
 
 // check square and and pass it to correct array or break from loop if needed
-function distributeSquare(
-  board: Array<BoardColumn>,
-  emptySquares: Array<ISquareCoordinates>,
-  attackSquares: Array<ISquareCoordinates>,
-  mainPiece: ChessPiece,
-  coordinates: ISquareCoordinates
-): boolean {
+function distributeSquare(moveArguments: IMoveArguments, coordinates: ISquareCoordinates): boolean {
   const [x, y] = getCoordinates(coordinates);
-  const possiblePiece: ChessPiece | undefined = board[x][y].piece;
+  const possiblePiece: ChessPiece | undefined = moveArguments.board[x][y].piece;
 
   const isBreak: boolean = true;
   if (!possiblePiece) {
-    emptySquares.push(coordinates);
+    moveArguments.emptySquares.push(coordinates);
     return !isBreak;
   }
-  if (possiblePiece.colour !== mainPiece.colour) {
-    attackSquares.push(coordinates);
+  if (possiblePiece.colour !== moveArguments.piece.colour) {
+    moveArguments.attackSquares.push(coordinates);
     return isBreak;
   }
   return isBreak;
 }
+function defineMainDirection(colour: TeamColour): VerticalDirections {
+  switch (colour) {
+    case TeamColour.white:
+      return VerticalDirections.top;
+    case TeamColour.black:
+      return VerticalDirections.down;
+  }
+}
 // pawn's attack
-function cornerAttack(
-  board: Array<BoardColumn>,
-  x: number,
-  y: number,
-  attackSquares: Array<ISquareCoordinates>,
-  currentPiece: ChessPiece
-): void {
-  Object.keys(horizontalDirections).forEach((sideValue: string) => {
+function cornerAttack(moveArguments: IMoveArguments): void {
+  const direction = defineMainDirection(moveArguments.piece.colour);
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
+  const y: number = startY + direction;
+  if (y < 0 || y > 7) return;
+
+  Object.keys(HorizontalDirections).forEach((sideValue: string) => {
     if (isNaN(+sideValue)) return;
     const side: number = +sideValue;
-    const sideX: number = x + side;
-    if (sideX < 0 || sideX > 7) return;
+    const x: number = startX + side;
+    if (x < 0 || x > 7) return;
 
-    if (!board[sideX][y].piece || board[sideX][y].piece?.colour === currentPiece.colour) return;
-    const coordinates = { x: getColumnLetter(sideX), y: y + 1 };
-    attackSquares.push(coordinates);
+    const square: IBoardSquare = moveArguments.board[x][y];
+    if (!square.piece || square.piece?.colour === moveArguments.piece.colour) return;
+
+    const coordinates = { x: getColumnLetter(x), y: y + 1 };
+    moveArguments.attackSquares.push(coordinates);
   });
 }
-function horizontalAndVerticalMove(
-  emptySquares: Array<ISquareCoordinates>,
-  attackSquares: Array<ISquareCoordinates>,
-  board: Array<BoardColumn>,
-  piece: ChessPiece
-): void {
-  const [startX, startY] = getCoordinates(piece.coordinates);
+function pawnMove(moveArguments: IMoveArguments): void {
+  const direction: VerticalDirections = defineMainDirection(moveArguments.piece.colour);
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
+  let coordinates: ISquareCoordinates;
+  let y: number = startY + direction;
+  if (y < 0 || y > 7) return;
 
-  Object.keys(horizontalDirections).forEach((directionValue: string) => {
+  // check sides for enemy piece
+  cornerAttack(moveArguments);
+
+  // check for default moves without taking enemy piece
+  if (moveArguments.board[startX][y].piece) return;
+  coordinates = { x: getColumnLetter(startX), y: y + 1 };
+  moveArguments.emptySquares.push(coordinates);
+
+  if (!moveArguments.piece.isFirstMove) return;
+  y += direction;
+  if (y < 0 || y > 7) return;
+  if (moveArguments.board[startX][y].piece) return;
+  coordinates = { x: getColumnLetter(startX), y: y + 1 };
+  moveArguments.emptySquares.push(coordinates);
+}
+function XYMove(moveArguments: IMoveArguments): void {
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
+
+  Object.keys(HorizontalDirections).forEach((directionValue: string) => {
     if (isNaN(+directionValue)) return;
     const direction: number = +directionValue;
 
@@ -199,12 +268,12 @@ function horizontalAndVerticalMove(
       const columnIndex: columnLetterType = getColumnLetter(x);
       const rowIndex: number = startY + 1;
       const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
-      const isBreak = distributeSquare(board, emptySquares, attackSquares, piece, coordinates);
+      const isBreak = distributeSquare(moveArguments, coordinates);
       if (isBreak) break;
     }
   });
 
-  Object.keys(verticalDirections).forEach((directionValue: string) => {
+  Object.keys(VerticalDirections).forEach((directionValue: string) => {
     if (isNaN(+directionValue)) return;
     const direction: number = +directionValue;
 
@@ -214,23 +283,18 @@ function horizontalAndVerticalMove(
       const columnIndex: columnLetterType = getColumnLetter(startX);
       const rowIndex: number = y + 1;
       const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
-      const isBreak = distributeSquare(board, emptySquares, attackSquares, piece, coordinates);
+      const isBreak = distributeSquare(moveArguments, coordinates);
       if (isBreak) break;
     }
   });
 }
-function diagonalMove(
-  emptySquares: Array<ISquareCoordinates>,
-  attackSquares: Array<ISquareCoordinates>,
-  board: Array<BoardColumn>,
-  piece: ChessPiece
-): void {
-  const [startX, startY] = getCoordinates(piece.coordinates);
+function diagonalMove(moveArguments: IMoveArguments): void {
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
 
-  Object.keys(horizontalDirections).forEach((horizontalDirectionValue: string) => {
+  Object.keys(HorizontalDirections).forEach((horizontalDirectionValue: string) => {
     if (isNaN(+horizontalDirectionValue)) return;
     const horizontalDirection: number = +horizontalDirectionValue;
-    Object.keys(verticalDirections).forEach((verticalDirectionValue: string) => {
+    Object.keys(VerticalDirections).forEach((verticalDirectionValue: string) => {
       if (isNaN(+verticalDirectionValue)) return;
       const verticalDirection: number = +verticalDirectionValue;
 
@@ -248,19 +312,14 @@ function diagonalMove(
         const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
         x += horizontalDirection;
         y += verticalDirection;
-        const isBreak = distributeSquare(board, emptySquares, attackSquares, piece, coordinates);
+        const isBreak = distributeSquare(moveArguments, coordinates);
         if (isBreak) break;
       }
     });
   });
 }
-function knightMove(
-  emptySquares: Array<ISquareCoordinates>,
-  attackSquares: Array<ISquareCoordinates>,
-  board: Array<BoardColumn>,
-  piece: ChessPiece
-) {
-  const [startX, startY] = getCoordinates(piece.coordinates);
+function knightMove(moveArguments: IMoveArguments): void {
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
   const possibleSquarePositions: Array<{ x: number; y: number }> = [];
   for (let x: number = -2; x <= 2; x++) {
     if (x === 0) continue;
@@ -278,16 +337,11 @@ function knightMove(
     const columnIndex: columnLetterType = getColumnLetter(x);
     const rowIndex: number = y + 1;
     const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
-    distributeSquare(board, emptySquares, attackSquares, piece, coordinates);
+    distributeSquare(moveArguments, coordinates);
   });
 }
-function kingMove(
-  emptySquares: Array<ISquareCoordinates>,
-  attackSquares: Array<ISquareCoordinates>,
-  board: Array<BoardColumn>,
-  piece: ChessPiece
-): void {
-  const [startX, startY] = getCoordinates(piece.coordinates);
+function kingMove(moveArguments: IMoveArguments): void {
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
 
   for (let relativePositionX: number = -1; relativePositionX <= 1; relativePositionX++) {
     for (let relativePositionY: number = -1; relativePositionY <= 1; relativePositionY++) {
@@ -300,7 +354,99 @@ function kingMove(
       const columnIndex: columnLetterType = getColumnLetter(x);
       const rowIndex: number = y + 1;
       const coordinates: ISquareCoordinates = { x: columnIndex, y: rowIndex };
-      distributeSquare(board, emptySquares, attackSquares, piece, coordinates);
+      distributeSquare(moveArguments, coordinates);
     }
   }
 }
+
+interface IWhoMove {
+  move: (moveArguments: IMoveArguments) => void;
+  whoMove: Array<PieceTypes>;
+}
+type ListOfMoveFunctions = Array<IWhoMove>;
+const listOfMoves: ListOfMoveFunctions = [
+  { move: XYMove, whoMove: [PieceTypes.queen, PieceTypes.rook] },
+  { move: diagonalMove, whoMove: [PieceTypes.queen, PieceTypes.bishop] },
+  { move: knightMove, whoMove: [PieceTypes.knight] },
+  { move: kingMove, whoMove: [PieceTypes.king] },
+  { move: cornerAttack, whoMove: [PieceTypes.pawn] },
+];
+function validateMoves(moveArguments: IMoveArguments, allyKing: ChessPiece): void {
+  const boardCopy: Array<BoardColumn> = lodash.cloneDeep(moveArguments.board);
+  const [startX, startY] = getCoordinates(moveArguments.piece.coordinates);
+  const piece: ChessPiece = boardCopy[startX][startY].piece!;
+  delete boardCopy[startX][startY].piece;
+
+  const kingCopy: ChessPiece = lodash.cloneDeep(allyKing);
+  const kingValidationArguments: IMoveArguments = {
+    emptySquares: [],
+    attackSquares: [],
+    board: boardCopy,
+    piece: allyKing,
+  };
+  const filterMoves = (square: ISquareCoordinates): boolean => {
+    const [x, y] = getCoordinates(square);
+    const attacks: Array<ISquareCoordinates> = kingValidationArguments.attackSquares;
+    if (piece.name === PieceTypes.king) {
+      kingValidationArguments.piece.coordinates = square;
+    }
+
+    boardCopy[x][y].piece = piece;
+    let isInvalid: boolean = false;
+    const findInvalidMove = (...pieces: Array<PieceTypes>): boolean => {
+      for (let i: number = 0; i < attacks.length; i++) {
+        const [x, y] = getCoordinates(attacks[i]);
+        const enemyPiece: ChessPiece = boardCopy[x][y].piece!;
+        if (pieces.some((pieceName: string) => enemyPiece.name === pieceName)) {
+          console.log('blocked', enemyPiece.name);
+          kingValidationArguments.attackSquares.length = 0;
+          return true;
+        }
+        console.log('allowed', piece);
+      }
+      kingValidationArguments.attackSquares.length = 0;
+      return false;
+    };
+
+    for (let i: number = 0; i < listOfMoves.length; i++) {
+      listOfMoves[i].move(kingValidationArguments);
+      isInvalid = findInvalidMove(...listOfMoves[i].whoMove);
+      if (isInvalid) {
+        kingValidationArguments.piece.coordinates = kingCopy.coordinates;
+        delete boardCopy[x][y].piece;
+        return false;
+      }
+    }
+
+    kingValidationArguments.piece.coordinates = kingCopy.coordinates;
+    delete boardCopy[x][y].piece;
+    return true;
+  };
+
+  const validEmptySquares: Array<ISquareCoordinates> = moveArguments.emptySquares.filter(filterMoves);
+  const validAttackSquares: Array<ISquareCoordinates> = moveArguments.attackSquares.filter(filterMoves);
+  moveArguments.emptySquares = validEmptySquares;
+  moveArguments.attackSquares = validAttackSquares;
+  // console.log('empty squares:', validEmptySquares, 'attack squares', validAttackSquares);
+}
+/*    
+    XYMove(kingValidationArguments);
+    isInvalid = findInvalidMove(PieceTypes.queen, PieceTypes.rook);
+    if (isInvalid) return false;
+
+    diagonalMove(kingValidationArguments);
+    isInvalid = findInvalidMove(PieceTypes.queen, PieceTypes.bishop);
+    if (isInvalid) return false;
+
+    knightMove(kingValidationArguments);
+    isInvalid = findInvalidMove(PieceTypes.knight);
+    if (isInvalid) return false;
+
+    kingMove(kingValidationArguments);
+    isInvalid = findInvalidMove(PieceTypes.king);
+    if (isInvalid) return false;
+
+    cornerAttack(kingValidationArguments);
+    isInvalid = findInvalidMove(PieceTypes.pawn);
+    if (isInvalid) return false; 
+    */
